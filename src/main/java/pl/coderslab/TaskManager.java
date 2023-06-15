@@ -1,142 +1,156 @@
 package pl.coderslab;
 
 
-import java.io.*;
-import java.util.ArrayList;
+import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.math.NumberUtils;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
 
 public class TaskManager {
-    private static final String FILE_NAME = "tasks.csv";
-    private static final String FILE_PATH = "src/main/resources/" + FILE_NAME;
-    private static final String DELIMITER = ",";
+
+    static final String FILE_NAME = "src/tasks.csv";
+    static final String[] OPTIONS = {"add", "remove", "list", "exit"};
+    static String[][] tasks;
+
+    public static void printOptions(String[] tab) {
+        System.out.println(ConsoleColors.BLUE);
+        System.out.println("Please select an option: " + ConsoleColors.RESET);
+        for (String option : tab) {
+            System.out.println(option);
+        }
+    }
 
     public static void main(String[] args) {
+        tasks = loadDataToTab(FILE_NAME);
+        printOptions(OPTIONS);
         Scanner scanner = new Scanner(System.in);
-        List<Task> tasks = loadTasks();
+        while (scanner.hasNextLine()) {
+            String input = scanner.nextLine();
 
-        System.out.println(ConsoleColors.CYAN_BACKGROUND + ConsoleColors.BLACK_BOLD_BRIGHT + "Welcome to the Task Manager!" + ConsoleColors.RESET);
-
-        label:
-        while(true) {
-            System.out.println(ConsoleColors.GREEN_BOLD + "What would you like to do?");
-            System.out.println(ConsoleColors.BLUE + "1. List tasks: list/l/1");
-            System.out.println(ConsoleColors.BLUE + "2. Add task: add/a/2");
-            System.out.println(ConsoleColors.BLUE + "3. Delete task: delete/d/3");
-            System.out.println(ConsoleColors.BLUE + "4. Exit: exit/e/4");
-
-            String choice = scanner.nextLine();
-
-            switch (choice.toLowerCase()) {
-                case "list":
-                case "l":
-                case "1":
-                    listTasks(tasks);
+            switch (input) {
+                case "exit":
+                    saveTabToFile(FILE_NAME, tasks);
+                    System.out.println(ConsoleColors.RED + "Bye, bye.");
+                    System.exit(0);
                     break;
                 case "add":
-                case "a":
-                case "2":
-                    addTask(scanner, tasks);
+                    addTask();
                     break;
-                case "delete":
-                case "d":
-                case "3":
-                    deleteTask(scanner, tasks);
+                case "remove":
+                    removeTask(tasks, getTheNumber());
+                    System.out.println("Value was successfully deleted.");
                     break;
-                case "exit":
-                case "e":
-                case "4":
-                    System.out.println(ConsoleColors.RED_BOLD + "Goodbye!");
-                    break label;
+                case "list":
+                    printTab(tasks);
+                    break;
                 default:
-                    System.out.println(ConsoleColors.BLUE + "Invalid choice. Please try again.");
-                    break;
+                    System.out.println("Please select a correct option.");
             }
+
+            printOptions(OPTIONS);
         }
+
 
     }
 
-    private static List<Task> loadTasks() {
-        List<Task> tasks = new ArrayList<>();
+    public static int getTheNumber() {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Please select number to remove.");
 
-        try(BufferedReader reader = new BufferedReader(new FileReader(FILE_PATH))) {
-            String line = reader.readLine();
+        String n = scanner.nextLine();
+        while (!isNumberGreaterEqualZero(n)) {
+            System.out.println("Incorrect argument passed. Please give number greater or equal 0");
+            scanner.nextLine();
+        }
+        return Integer.parseInt(n);
+    }
 
-            while(line != null) {
-                String[] tokens = line.split(DELIMITER);
-                String name = tokens[0];
-                String date = tokens[1];
-                boolean isImportant = Boolean.parseBoolean(tokens[2]);
-
-                Task task = new Task(name, date, isImportant);
-                tasks.add(task);
-
-                line = reader.readLine();
+    private static void removeTask(String[][] tab, int index) {
+        try {
+            if (index < tab.length) {
+                tasks = ArrayUtils.remove(tab, index);
             }
-        } catch(IOException e) {
-            System.out.println(ConsoleColors.BLUE + "Error reading file: " + e.getMessage());
+        } catch (ArrayIndexOutOfBoundsException ex) {
+            System.out.println("Element not exist in tab");
         }
-        return tasks;
     }
 
-    private static void listTasks(List<Task> tasks) {
-        if (tasks.isEmpty()) {
-            System.out.println(ConsoleColors.BLUE + "You have no tasks.");
-            return;
+    public static boolean isNumberGreaterEqualZero(String input) {
+        if (NumberUtils.isParsable(input)) {
+            return Integer.parseInt(input) >= 0;
         }
-
-        System.out.println(ConsoleColors.BLUE + "Here are your tasks:");
-
-        for (int i = 0; i < tasks.size(); i++) {
-            Task task = tasks.get(i);
-            System.out.println((i + 1) + ". " + task.getName() + " - " + task.getDate() + " - " + task.isImportant());
-        }
-        System.out.println();
+        return false;
     }
 
-    private static void addTask(Scanner scanner, List<Task> tasks) {
-        System.out.println(ConsoleColors.BLUE + "What is the name of your task?");
-        String name = scanner.nextLine();
-
-        System.out.println(ConsoleColors.BLUE + "What is the date of your task?");
-        String date = scanner.nextLine();
-
-        System.out.println(ConsoleColors.BLUE + "Is your task important? (true/false)");
-        boolean isImportant = Boolean.parseBoolean(scanner.nextLine());
-
-        Task task = new Task(name, date, isImportant);
-        tasks.add(task);
-
-        writeAddedTasksToFile(tasks);
-
-        System.out.println(ConsoleColors.GREEN_BOLD_BRIGHT + "Task added:");
-        System.out.println(task.getName() + " - " + task.getDate() + " - " + task.isImportant() + "\n");
-    }
-
-    private static void writeAddedTasksToFile(List<Task> tasks) {
-        try(BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_PATH))) {
-            for (Task task : tasks) {
-                String name = task.getName();
-                String date = task.getDate();
-                boolean isImportant = task.isImportant();
-
-                String line = String.format("%s,%s,%s", name, date, isImportant);
-                writer.write(line);
-                writer.newLine();
+    public static void printTab(String[][] tab) {
+        for (int i = 0; i < tab.length; i++) {
+            System.out.print(i + " : ");
+            for (int j = 0; j < tab[i].length; j++) {
+                System.out.print(tab[i][j] + " ");
             }
-        } catch(IOException e) {
-            System.out.println(ConsoleColors.RED_BOLD + "Error writing to file: " + e.getMessage());
+            System.out.println();
         }
     }
 
-    private static void deleteTask(Scanner scanner, List<Task> tasks) {
-        System.out.println(ConsoleColors.BLUE + "Which task would you like to delete?");
-        listTasks(tasks);
-        int index = Integer.parseInt(scanner.nextLine()) - 1;
-        tasks.remove(index);
-        //overwrite file with new list of tasks
-        writeAddedTasksToFile(tasks);
-        System.out.println(ConsoleColors.RED_BOLD + "Task deleted.\n");
+    private static void addTask() {
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Please add task description");
+        String description = scanner.nextLine();
+        System.out.println("Please add task due date");
+        String dueDate = scanner.nextLine();
+        System.out.println("Is your task important: true/false");
+        String isImportant = scanner.nextLine();
+        tasks = Arrays.copyOf(tasks, tasks.length + 1);
+        tasks[tasks.length - 1] = new String[3];
+        tasks[tasks.length - 1][0] = description;
+        tasks[tasks.length - 1][1] = dueDate;
+        tasks[tasks.length - 1][2] = isImportant;
     }
 
+
+    public static String[][] loadDataToTab(String fileName) {
+        Path dir = Paths.get(fileName);
+        if (!Files.exists(dir)) {
+            System.out.println("File not exist.");
+            System.exit(0);
+        }
+
+        String[][] tab = null;
+        try {
+            List<String> strings = Files.readAllLines(dir);
+            tab = new String[strings.size()][strings.get(0).split(",").length];
+
+            for (int i = 0; i < strings.size(); i++) {
+                String[] split = strings.get(i).split(",");
+                for (int j = 0; j < split.length; j++) {
+                    tab[i][j] = split[j];
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return tab;
+    }
+
+
+    public static void saveTabToFile(String fileName, String[][] tab) {
+        Path dir = Paths.get(fileName);
+
+        String[] lines = new String[tasks.length];
+        for (int i = 0; i < tab.length; i++) {
+            lines[i] = String.join(",", tab[i]);
+        }
+
+        try {
+            Files.write(dir, Arrays.asList(lines));
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
 }
